@@ -3,7 +3,7 @@ title: "Machine Learning project"
 output: html_document
 ---
 
-```{r, echo=FALSE, results='hide'}
+```{r, echo=FALSE, results='hide', message=FALSE}
 library(caret)
 
 set.seed(20)
@@ -60,13 +60,13 @@ pred <- c(2, pred_num)
 ```
 
 From this, we build a decision tree and extract the variables from the nodes:
-```{r, cache=TRUE}
+```{r, cache=TRUE, message=FALSE}
 rpartModel <- train(x = training[, pred], y = training$classe)
 pred_rp <- c("user_name", "roll_belt" , "pitch_forearm", "accel_belt_z", "magnet_belt_y", "total_accel_belt", "magnet_belt_z", "accel_belt_x", "roll_forearm", "magnet_dumbbell_y", "magnet_arm_x", "accel_arm_x", "accel_dumbbell_x", "total_accel_dumbbell", "accel_forearm_x", "yaw_arm", "yaw_belt", "roll_dumbbell", "magnet_dumbbell_x", "accel_dumbbell_y", "gyros_dumbbell_y", "magnet_dumbbell_z", "roll_arm", "yaw_forearm", "accel_forearm_z")
 ```
 
 Here's a feature plot for them (after centering and scaling them, which doesn't affect a Random Forest algorithm):
-```{r}
+```{r, cache=TRUE}
 preObj <- preProcess(training[, pred_rp[-1]], method=c("center", "scale"))
 featurePlot(predict(preObj, training[, pred_rp[-1]]), training$classe)
 ```
