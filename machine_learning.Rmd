@@ -1,0 +1,95 @@
+---
+title: "Machine Learning project"
+output: html_document
+---
+
+```{r, echo=FALSE, results='hide'}
+library(caret)
+
+set.seed(20)
+
+data <- read.csv('pml-training.csv')
+test <- read.csv('pml-testing.csv')
+
+inTraining <- createDataPartition(data$classe, p=0.6, list=FALSE)
+
+training <- data[inTraining, ]
+testing_val <- data[-inTraining, ]
+
+inTesting <- createDataPartition(testing_val$classe, p=0.5, list=FALSE)
+testing <- testing_val[inTesting, ]
+validation <- testing_val[- inTesting, ]
+
+```
+
+### Introduction
+
+We will use the Random Forest algorithm to build a classification model.
+
+### Building the model
+
+After getting the data and separating it into training, testing and validation set (in the 60/20/20 proportions), we search for variables to exclude from the possible predictors. We start with the index and timestamp variables.
+
+```{r}
+pred <- c(2, 8:159)
+```
+
+We then take away the variables with little data available (more than 95% NA):
+
+```{r}
+nanCols <- colMeans(is.na(training)) 
+pred <- setdiff(pred, (1:160)[nanCols > 0.95])
+```
+
+and the variables with little variability:
+```{r}
+nsv <- nearZeroVar(training)
+pred <- setdiff(pred, nsv)
+```
+
+Last, we look at strongly correlated numeric variables, and take one from each set.
+
+```{r}
+pred_num <- pred[-1]
+cor_mat <- cor(training[, pred_num])
+diag(cor_mat) <- 0
+c_ind <- which(abs(cor_mat) > 0.8, arr.ind=T)
+
+pred_num <- pred_num[-c_ind[which(c_ind[, 1] > c_ind[, 2]), 2]]
+pred <- c(2, pred_num)
+```
+
+From this, we build a decision tree and extract the variables from the nodes:
+```{r, cache=TRUE}
+rpartModel <- train(x = training[, pred], y = training$classe)
+pred_rp <- c("user_name", "roll_belt" , "pitch_forearm", "accel_belt_z", "magnet_belt_y", "total_accel_belt", "magnet_belt_z", "accel_belt_x", "roll_forearm", "magnet_dumbbell_y", "magnet_arm_x", "accel_arm_x", "accel_dumbbell_x", "total_accel_dumbbell", "accel_forearm_x", "yaw_arm", "yaw_belt", "roll_dumbbell", "magnet_dumbbell_x", "accel_dumbbell_y", "gyros_dumbbell_y", "magnet_dumbbell_z", "roll_arm", "yaw_forearm", "accel_forearm_z")
+```
+
+Here's a feature plot for them (after centering and scaling them, which doesn't affect a Random Forest algorithm):
+```{r}
+preObj <- preProcess(training[, pred_rp[-1]], method=c("center", "scale"))
+featurePlot(predict(preObj, training[, pred_rp[-1]]), training$classe)
+```
+
+### Cross-validation
+
+
+```{r, echo=FALSE, cache=TRUE}
+accuracy = vector("numeric")
+for(i in 1:5 ) {
+  modelFit <- train(training[, pred_rp], training$classe, method='rf')
+  predictions <- predict(modelFit, testing[, pred_rp])
+  cm <- confusionMatrix(predictions, testing$classe)
+  accuracy[i] <- cm$overall[1]
+}
+```
+We repeat the training phase 5 times over the same training set, and the average accuracy (out of sample error) over the testing set is: `r mean(accuracy) `.
+
+By using the last model on the validation set, we get:
+
+```{r, echo=FALSE}
+predictions <- predict(modelFit, validation[, pred_rp])
+cm <- confusionMatrix(predictions, validation$classe)
+print(cm)
+```
+
